@@ -47,7 +47,7 @@ function draw() {
   }
   
   fill(255)
-  //text("Click me", width/2, height/2)
+  text("Click me", width/2, height/2)
 }
 
 function mousePressed() {
