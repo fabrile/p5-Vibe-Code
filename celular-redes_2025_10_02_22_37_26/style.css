@@ -1,0 +1,12 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%; /* importante para que ocupe toda la pantalla */
+  display: flex;
+  justify-content: center; /* centra horizontal */
+  align-items: center;     /* centra vertical */
+}
+
+canvas {
+  display: block;
+}
