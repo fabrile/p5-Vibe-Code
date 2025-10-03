@@ -464,18 +464,16 @@ function inCircumcircle(points, tri, p) {
   let b = points[tri[1]];
   let c = points[tri[2]];
   
-  let ab = a.x * a.x + a.y * a.y;
-  let cd = b.x * b.x + b.y * b.y;
-  let ef = c.x * c.x + c.y * c.y;
+  let circumcenter = getCircumcenter(a, b, c);
   
-  let circum_x = (ab * (c.y - b.y) + cd * (a.y - c.y) + ef * (b.y - a.y)) / 
-                 (a.x * (c.y - b.y) + b.x * (a.y - c.y) + c.x * (b.y - a.y)) / 2;
-  let circum_y = (ab * (c.x - b.x) + cd * (a.x - c.x) + ef * (b.x - a.x)) / 
-                 (a.y * (c.x - b.x) + b.y * (a.x - c.x) + c.y * (b.x - a.x)) / 2;
-  let circum_r = dist(a.x, a.y, circum_x, circum_y);
+  // Si el triángulo es degenerado (puntos colineales)
+  if (!circumcenter) return false;
   
-  let d = dist(p.x, p.y, circum_x, circum_y);
-  return d <= circum_r;
+  // Comparamos las distancias al cuadrado para evitar la costosa operación de raíz cuadrada
+  let radiusSq = (circumcenter.x - a.x) * (circumcenter.x - a.x) + (circumcenter.y - a.y) * (circumcenter.y - a.y);
+  let distSq = (circumcenter.x - p.x) * (circumcenter.x - p.x) + (circumcenter.y - p.y) * (circumcenter.y - p.y);
+  
+  return distSq <= radiusSq;
 }
 
 function sharesEdge(tri1, tri2, edge) {
