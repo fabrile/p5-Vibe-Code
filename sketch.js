@@ -5,13 +5,28 @@ let relaxationSpeed = 0.15;
 let showVoronoi = false;
 let minDist = 40; // Distancia mínima de Poisson
 
+let synth;
+let lastBeatTime = 0;
+const beatInterval = 1600; // 80 BPM (60000ms / 80bpm)
+let beatColor;
+let baseColor;
+let isVoronoiActive = true; // Para alternar el efecto
+let audioReady = false;
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   minDist = min(height/15, width/15)
   textAlign(CENTER);
   textSize(width/75)
 
-  
+  baseColor = color(20, 0, 20); // Base morada oscura
+  beatColor = color(20, 0, 50); // Rojizo para el latido
+  background(baseColor);
+
+  // NO inicializamos Tone.js aquí para evitar el error de carga.
+  // Lo haremos en mousePressed() después de la interacción del usuario.
+
+ 
   // Generar puntos con distribución de Poisson Disk Sampling
   points = poissonDiskSampling(width, height, minDist, 30);
   
@@ -20,7 +35,39 @@ function setup() {
 }
 
 function draw() {
-  background(20);
+  if (isVoronoiActive) {
+    // En el latido
+    if (millis() - lastBeatTime > beatInterval) {
+      lastBeatTime = millis();
+
+      background(beatColor); // Cambiar color en el latido
+      
+      // Reproducir sonido de latido si el audio está listo
+      if (audioReady) {
+          const now = Tone.now();
+          // Sonido "lub-dub"
+          synth.triggerAttackRelease("C2", "8n", now);
+          synth.triggerAttackRelease("G1", "8n", now + 0.15);
+      }
+      
+    } else {
+      // Desvanecer de vuelta al color base
+      let lerpAmount = (millis() - lastBeatTime) / beatInterval;
+      background(lerpColor(beatColor, baseColor, lerpAmount));
+    }
+
+    // Placeholder para el dibujo de Voronoi real
+    stroke(255, 50);
+    for (let i = 0; i < 10; i++) {
+        point(random(width), random(height));
+    }
+  } else {
+    background(51);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(32);
+    text("Modo Voronoi DESACTIVADO", width / 2, height / 2);
+  }
   
   // Aplicar relajación de Voronoi (algoritmo de Lloyd)
   lloydRelaxation();
@@ -50,7 +97,31 @@ function draw() {
   text("Click me", width/2, height/2)
 }
 
-function mousePressed() {
+// Iniciar audio con la interacción del usuario
+async function mousePressed() {
+  // Inicializar el audio solo una vez con el primer clic
+  if (!audioReady && typeof Tone !== 'undefined') {
+    await Tone.start();
+    console.log('Contexto de audio iniciado');
+
+    // Ahora que Tone.js está listo, inicializamos el sintetizador
+    synth = new Tone.MembraneSynth({
+        "pitchDecay": 0.01,
+        "octaves": 6,
+        "oscillator": {
+            "type": "sine"
+        },
+        "envelope": {
+            "attack": 0.001,
+            "decay": 0.4,
+            "sustain": 0.01,
+            "release": 1.4,
+            "attackCurve": "exponential"
+        }
+    }).toDestination();
+    
+    audioReady = true;
+  }
   if (mouseButton === CENTER) {
     // Variables para la triangulación
     points = [];
@@ -64,10 +135,18 @@ function mousePressed() {
   } 
   if (mouseButton === LEFT) {
     showVoronoi = !showVoronoi;
+    if (showVoronoi) {
+      audioReady = true
+    } else {
+      audioReady = false
+    }
   }
 }
 
-
+// Alternar modo
+function keyPressed() {
+    isVoronoiActive = !isVoronoiActive;
+}
 
 function drawDelaunay() {
   // Dibujar triángulos de Delaunay con filtro de distancia
@@ -127,55 +206,6 @@ function  drawOrganicLine(x1, y1, x2, y2) {
 
 
 
-/*
-function drawVoronoi() {
-  // Dibujar celdas de Voronoi
-  stroke(255, 100, 150, 80);
-  strokeWeight(1);
-  noFill();
-  
-  for (let i = 0; i < points.length; i++) {
-    let voronoiVertices = [];
-    
-    // Buscar todos los triángulos que contienen este punto
-    for (let tri of triangles) {
-      if (tri.includes(i)) {
-        // Calcular el circuncentro de este triángulo
-        let p0 = points[tri[0]];
-        let p1 = points[tri[1]];
-        let p2 = points[tri[2]];
-        
-        let circumcenter = getCircumcenter(p0, p1, p2);
-        
-        if (circumcenter) {
-          voronoiVertices.push(circumcenter);
-        }
-      }
-    }
-    
-    // Ordenar los vértices de Voronoi en sentido antihorario
-    if (voronoiVertices.length > 0) {
-      let center = points[i];
-      voronoiVertices.sort((a, b) => {
-        let angleA = atan2(a.y - center.y, a.x - center.x);
-        let angleB = atan2(b.y - center.y, b.x - center.x);
-        return angleA - angleB;
-      });
-      
-      let colordist = (1-(dist(points[i].x,points[i].y,width/2, height/2))/width*2)*255;
-      fill(colordist*abs(sin(millis()/800)),0,0)
-      
-      // Dibujar el polígono de Voronoi
-      beginShape();
-      for (let v of voronoiVertices) {
-        vertex(v.x, v.y);
-      }
-      endShape(CLOSE);
-    }
-  }
-}
-*/
-
 function drawVoronoi() {
   stroke(255, 100, 150, 80);
   strokeWeight(1);
@@ -208,12 +238,12 @@ function drawVoronoi() {
 
       // 🚨 FILTRO: si algún vértice toca los bordes, descartamos la celda
       let touchesBorder = voronoiVertices.some(v =>
-        v.x <= 1 || v.x >= width - 1 || v.y <= 1 || v.y >= height - 1
+        v.x <= 10 || v.x >= width - 10 || v.y <= 10 || v.y >= height - 10
       );
       if (touchesBorder) continue; // saltar esta celda
 
       // Color dinámico
-      let peso = abs(sin(millis()/800))
+      let peso = abs(sin(millis()/beatInterval))
       let colordist = (1-(dist(points[i].x,points[i].y,width/2, height/2))/width*2)*255;
       strokeWeight(20*(1-peso))
       stroke(20)
